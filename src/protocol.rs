@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Message {
-    /// A clipboard content update from the remote peer.
+    /// A clipboard text update from the remote peer.
     ClipboardUpdate { content: String, hash: String },
+    /// A clipboard image update (base64-encoded PNG).
+    ImageUpdate { data: String, hash: String },
     /// Acknowledgement of a received update.
     Ack { hash: String },
 }

@@ -1,4 +1,4 @@
-use crate::clipboard::ClipboardMonitor;
+use crate::clipboard::{ClipboardContent, ClipboardMonitor};
 use crate::protocol::Message;
 use futures_util::{SinkExt, StreamExt};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -17,7 +17,7 @@ pub fn new_client_count() -> ClientCount {
 }
 
 pub async fn run(port: u16, monitor: ClipboardMonitor, client_count: ClientCount) -> anyhow::Result<()> {
-    let (tx, _rx) = watch::channel::<Option<(String, String)>>(None);
+    let (tx, _rx) = watch::channel::<Option<ClipboardContent>>(None);
 
     let mon = monitor.clone();
     let poll_tx = tx.clone();
@@ -57,7 +57,7 @@ pub async fn run(port: u16, monitor: ClipboardMonitor, client_count: ClientCount
 async fn handle_client(
     ws: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
     monitor: ClipboardMonitor,
-    mut rx: watch::Receiver<Option<(String, String)>>,
+    mut rx: watch::Receiver<Option<ClipboardContent>>,
     peer: std::net::SocketAddr,
 ) {
     let (mut ws_tx, mut ws_rx) = ws.split();
@@ -65,12 +65,18 @@ async fn handle_client(
     let send_handle = tokio::spawn(async move {
         while rx.changed().await.is_ok() {
             let val = rx.borrow_and_update().clone();
-            if let Some((content, hash)) = val {
-                let msg = Message::ClipboardUpdate { content, hash };
-                if let Err(e) = ws_tx.send(WsMessage::Text(msg.encode().into())).await {
-                    error!("[{peer}] send error: {e}");
-                    break;
+            let msg = match val {
+                Some(ClipboardContent::Text { content, hash }) => {
+                    Message::ClipboardUpdate { content, hash }
                 }
+                Some(ClipboardContent::Image { data_b64, hash }) => {
+                    Message::ImageUpdate { data: data_b64, hash }
+                }
+                None => continue,
+            };
+            if let Err(e) = ws_tx.send(WsMessage::Text(msg.encode().into())).await {
+                error!("[{peer}] send error: {e}");
+                break;
             }
         }
     });
@@ -82,6 +88,11 @@ async fn handle_client(
                     Ok(Message::ClipboardUpdate { content, hash: _ }) => {
                         if let Err(e) = monitor.set_clipboard(&content) {
                             error!("[{peer}] set clipboard: {e}");
+                        }
+                    }
+                    Ok(Message::ImageUpdate { data, hash }) => {
+                        if let Err(e) = monitor.set_clipboard_image(&data, &hash) {
+                            error!("[{peer}] set clipboard image: {e}");
                         }
                     }
                     Ok(Message::Ack { .. }) => {}
