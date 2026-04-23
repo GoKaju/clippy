@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2021"
 description = "Bidirectional clipboard sync over WebSocket"
 
+[[bin]]
+name = "clippy"
+path = "src/main.rs"
+
+[[bin]]
+name = "clippy-headless"
+path = "src/main_headless.rs"
+
 [dependencies]
 arboard = "3"
 tokio = { version = "1", features = ["full"] }

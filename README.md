@@ -109,7 +109,8 @@ cargo build --release --target x86_64-pc-windows-gnu
 
 Binaries:
 - Mac: `target/release/clippy`
-- Windows: `target/x86_64-pc-windows-gnu/release/clippy.exe`
+- Windows GUI (no console): `target/x86_64-pc-windows-gnu/release/clippy.exe`
+- Windows console / headless: `target/x86_64-pc-windows-gnu/release/clippy-headless.exe`
 
 ## Project Structure
 
@@ -121,7 +122,9 @@ clippy/
 │   ├── connected.png     # Tray icon: clients connected
 │   └── paused.png        # Tray icon: sync paused
 └── src/
-    ├── main.rs           # CLI entrypoint (clap)
+    ├── lib.rs            # Shared CLI logic, parsing, and app entry
+    ├── main.rs           # GUI binary (no console on Windows)
+    ├── main_headless.rs  # Console binary for servers / CI
     ├── clipboard.rs      # Poll clipboard, detect changes, anti ping-pong
     ├── server.rs         # WebSocket server, multi-client
     ├── client.rs         # WebSocket client
@@ -144,7 +147,7 @@ clippy/
 ## TODO
 
 - [x] Auto-reconnect — automatically reconnect if the connection is lost
-- [ ] No console window — suppress shell/cmd window on launch (Windows `#![windows_subsystem = "windows"]`)
+- [x] No console window — suppress shell/cmd window on launch (Windows `#![windows_subsystem = "windows"]`)
 - [ ] App icon — set a proper `.ico` / `.icns` application icon for macOS and Windows
 - [ ] Screenshot sync (copy a screenshot on one machine, paste it on the other)
 - [ ] File sync (copy a file, paste it on the other machine)
