@@ -96,10 +96,7 @@ fn main() -> anyhow::Result<()> {
             std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
                 rt.block_on(async {
-                    if let Err(e) = client::run(&addr_clone, mon).await {
-                        tracing::error!("client error: {e}");
-                        std::process::exit(1);
-                    }
+                    let _ = client::run(&addr_clone, mon).await;
                 });
             });
 

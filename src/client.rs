@@ -2,16 +2,21 @@ use crate::clipboard::ClipboardMonitor;
 use crate::protocol::Message;
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::watch;
+use tokio::time::{sleep, Duration};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::protocol::Message as WsMessage;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
-pub async fn run(addr: &str, monitor: ClipboardMonitor) -> anyhow::Result<()> {
+const RECONNECT_INITIAL_DELAY_MS: u64 = 1_000;
+const RECONNECT_MAX_DELAY_MS: u64 = 30_000;
+const RECONNECT_MULTIPLIER: u64 = 2;
+
+/// Connect once and run until the connection drops. Returns Ok(()) when the
+/// connection closes cleanly, or Err on a fatal error.
+async fn run_once(addr: &str, monitor: &ClipboardMonitor) -> anyhow::Result<()> {
     let url = format!("ws://{addr}");
-    info!("connecting to {url}");
-
     let (ws, _) = connect_async(&url).await?;
-    info!("connected");
+    info!("connected to {url}");
 
     let (mut ws_tx, mut ws_rx) = ws.split();
     let (tx, mut rx) = watch::channel::<Option<(String, String)>>(None);
@@ -61,4 +66,27 @@ pub async fn run(addr: &str, monitor: ClipboardMonitor) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Connect to `addr` and automatically reconnect with exponential backoff
+/// whenever the connection is lost.
+pub async fn run(addr: &str, monitor: ClipboardMonitor) -> anyhow::Result<()> {
+    let mut delay_ms = RECONNECT_INITIAL_DELAY_MS;
+
+    loop {
+        match run_once(addr, &monitor).await {
+            Ok(()) => {
+                // Connection closed — reconnect
+                warn!("connection lost, reconnecting in {delay_ms}ms...");
+            }
+            Err(e) => {
+                warn!("connection error: {e}, reconnecting in {delay_ms}ms...");
+            }
+        }
+
+        sleep(Duration::from_millis(delay_ms)).await;
+
+        // Exponential backoff capped at max delay
+        delay_ms = (delay_ms * RECONNECT_MULTIPLIER).min(RECONNECT_MAX_DELAY_MS);
+    }
 }

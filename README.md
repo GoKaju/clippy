@@ -143,7 +143,7 @@ clippy/
 
 ## TODO
 
-- [ ] Auto-reconnect — automatically reconnect if the connection is lost
+- [x] Auto-reconnect — automatically reconnect if the connection is lost
 - [ ] No console window — suppress shell/cmd window on launch (Windows `#![windows_subsystem = "windows"]`)
 - [ ] App icon — set a proper `.ico` / `.icns` application icon for macOS and Windows
 - [ ] Screenshot sync (copy a screenshot on one machine, paste it on the other)
